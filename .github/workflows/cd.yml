@@ -1,0 +1,249 @@
+name: CD
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      builder: ${{ steps.get_version.outputs.builder }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read version from pyproject.toml
+        id: get_version
+        shell: pwsh
+        run: |
+          $content = Get-Content pyproject.toml -Raw
+          if ($content -match 'version\s*=\s*"([^"]+)"') {
+            $ver = "v" + $Matches[1]
+            echo "version=$ver" >> $env:GITHUB_OUTPUT
+            echo "builder=both" >> $env:GITHUB_OUTPUT
+            echo "版本号: $ver"
+          } else {
+            Write-Error "无法从 pyproject.toml 中读取版本号"
+            exit 1
+          }
+
+  generate-changelog:
+    needs: prepare
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate changelog
+        run: python docs/changelog/scripts/generate_changelog.py --version ${{ needs.prepare.outputs.version }} --builder ${{ needs.prepare.outputs.builder }}
+
+      - name: Commit changelog
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "docs: auto-generate changelog for ${{ needs.prepare.outputs.version }}"
+          file_pattern: "docs/changelog/*.md"
+
+  build-nuitka:
+    needs: [prepare, generate-changelog]
+    if: needs.prepare.outputs.builder == 'nuitka' || needs.prepare.outputs.builder == 'both'
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Get version without v prefix
+        id: version
+        shell: pwsh
+        run: |
+          $ver = "${{ needs.prepare.outputs.version }}".TrimStart("v")
+          echo "number=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Build with Nuitka
+        uses: Nuitka/Nuitka-Action@main
+        with:
+          script-name: main.py
+          mode: onefile
+          enable-plugins: pyside6
+          windows-console-mode: disable
+          output-dir: build
+          output-filename: RCloneGUI.exe
+          product-name: "RClone GUI"
+          file-description: "RClone GUI Application"
+          company-name: "RCloneGUI"
+          product-version: ${{ steps.version.outputs.number }}
+          file-version: ${{ steps.version.outputs.number }}
+          extra-options: --assume-yes-for-downloads --deployment
+
+      - name: Rename executable
+        shell: pwsh
+        run: Rename-Item build/RCloneGUI.exe "RCloneGUI-${{ needs.prepare.outputs.version }}-nuitka.exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuitka-build
+          path: build/RCloneGUI-${{ needs.prepare.outputs.version }}-nuitka.exe
+
+  build-pyinstaller:
+    needs: [prepare, generate-changelog]
+    if: needs.prepare.outputs.builder == 'pyinstaller' || needs.prepare.outputs.builder == 'both'
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller --onefile --noconsole --name RCloneGUI main.py
+
+      - name: Rename executable
+        shell: pwsh
+        run: Rename-Item dist/RCloneGUI.exe "RCloneGUI-${{ needs.prepare.outputs.version }}-pyinstaller.exe"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyinstaller-build
+          path: dist/RCloneGUI-${{ needs.prepare.outputs.version }}-pyinstaller.exe
+
+  build-installer:
+    needs: [prepare, build-nuitka, build-pyinstaller]
+    if: always() && (needs.build-nuitka.result == 'success' || needs.build-pyinstaller.result == 'success')
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Create directories
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path installer/dist
+
+      - name: Download nuitka artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: nuitka-build
+          path: installer/dist/
+
+      - name: Download pyinstaller artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: pyinstaller-build
+          path: installer/dist/
+
+      - name: Select exe for installer
+        shell: pwsh
+        run: |
+          # 优先使用 nuitka 构建的 exe 作为安装包的主程序
+          $nuitkaExe = Get-ChildItem installer/dist/*nuitka* -ErrorAction SilentlyContinue | Select-Object -First 1
+          $pyinstallerExe = Get-ChildItem installer/dist/*pyinstaller* -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($nuitkaExe) {
+            Copy-Item $nuitkaExe.FullName "installer/dist/RCloneGUI.exe"
+          } elseif ($pyinstallerExe) {
+            Copy-Item $pyinstallerExe.FullName "installer/dist/RCloneGUI.exe"
+          } else {
+            Write-Error "No exe found for installer"
+            exit 1
+          }
+
+      - name: Copy rclone
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path installer/environments
+          Copy-Item environments/rclone.exe installer/environments/rclone.exe
+
+      - name: Build installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = "${{ needs.prepare.outputs.version }}".TrimStart("v")
+          iscc /DMyAppVersion=$version installer/RCloneGUI.iss
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: Output/RCloneGUI-*-setup.exe
+
+  release:
+    needs: [prepare, generate-changelog, build-nuitka, build-pyinstaller, build-installer]
+    if: always() && needs.generate-changelog.result == 'success' && (needs.build-installer.result == 'success' || needs.build-nuitka.result == 'success' || needs.build-pyinstaller.result == 'success')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Pull latest changes
+        run: git pull origin main
+
+      - name: Download nuitka artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: nuitka-build
+          path: nuitka-build/
+
+      - name: Download pyinstaller artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: pyinstaller-build
+          path: pyinstaller-build/
+
+      - name: Download installer artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: installer
+          path: installer/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.version }}
+          name: ${{ needs.prepare.outputs.version }}
+          body_path: docs/changelog/${{ needs.prepare.outputs.version }}.md
+          files: |
+            nuitka-build/*
+            pyinstaller-build/*
+            installer/*
+          draft: false
+          prerelease: false
