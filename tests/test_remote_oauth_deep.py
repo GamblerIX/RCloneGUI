@@ -706,6 +706,7 @@ class TestAddRemoteDialogS3DeepPaths:
         from app.views.remote_interface import RemoteInterface, AddRemoteDialog
         interface = RemoteInterface()
 
+        mocker.patch.object(AddRemoteDialog, '__init__', return_value=None)
         mocker.patch.object(AddRemoteDialog, 'exec', return_value=1)
         mocker.patch.object(AddRemoteDialog, 'getData',
                            return_value=('', '', {}))
