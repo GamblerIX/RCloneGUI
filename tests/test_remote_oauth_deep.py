@@ -470,16 +470,22 @@ class TestRemoteInterfaceRegistryPaths:
         interface = RemoteInterface()
         return interface, deps
 
+    def _patch_dialog(self, mocker, exec_return=1, get_data=None):
+        """Mock AddRemoteDialog 避免在 headless CI 中真实构造 UI 控件。"""
+        from app.views.remote_interface import AddRemoteDialog
+        mocker.patch.object(AddRemoteDialog, '__init__', return_value=None)
+        mocker.patch.object(AddRemoteDialog, 'exec', return_value=exec_return)
+        if get_data is not None:
+            mocker.patch.object(AddRemoteDialog, 'getData', return_value=get_data)
+
     def test_showAddDialog_confirm_success(self, mocker):
         """showAddDialog 用户确认添加成功（lines 589-605）。"""
         interface, deps = self._make_interface(mocker)
         deps['config_manager'].add_remote.return_value = True
         deps['config_manager'].list_remotes.return_value = []
 
-        from app.views.remote_interface import AddRemoteDialog
-        mocker.patch.object(AddRemoteDialog, 'exec', return_value=1)
-        mocker.patch.object(AddRemoteDialog, 'getData',
-                           return_value=('test-remote', 'sftp', {'host': '1.2.3.4'}))
+        self._patch_dialog(mocker, exec_return=1,
+                           get_data=('test-remote', 'sftp', {'host': '1.2.3.4'}))
 
         interface.showAddDialog()
         deps['config_manager'].add_remote.assert_called_once_with(
@@ -490,10 +496,8 @@ class TestRemoteInterfaceRegistryPaths:
         interface, deps = self._make_interface(mocker)
         deps['config_manager'].add_remote.return_value = False
 
-        from app.views.remote_interface import AddRemoteDialog
-        mocker.patch.object(AddRemoteDialog, 'exec', return_value=1)
-        mocker.patch.object(AddRemoteDialog, 'getData',
-                           return_value=('test-remote', 'sftp', {'host': '1.2.3.4'}))
+        self._patch_dialog(mocker, exec_return=1,
+                           get_data=('test-remote', 'sftp', {'host': '1.2.3.4'}))
 
         interface.showAddDialog()
         deps['config_manager'].add_remote.assert_called_once()
@@ -502,8 +506,7 @@ class TestRemoteInterfaceRegistryPaths:
         """showAddDialog 用户取消（lines 589-593）。"""
         interface, deps = self._make_interface(mocker)
 
-        from app.views.remote_interface import AddRemoteDialog
-        mocker.patch.object(AddRemoteDialog, 'exec', return_value=0)
+        self._patch_dialog(mocker, exec_return=0)
 
         interface.showAddDialog()
         deps['config_manager'].add_remote.assert_not_called()
@@ -517,10 +520,8 @@ class TestRemoteInterfaceRegistryPaths:
         deps['config_manager'].update_remote.return_value = True
         deps['config_manager'].list_remotes.return_value = [remote]
 
-        from app.views.remote_interface import AddRemoteDialog
-        mocker.patch.object(AddRemoteDialog, 'exec', return_value=1)
-        mocker.patch.object(AddRemoteDialog, 'getData',
-                           return_value=('edit-me', 'sftp', {'host': '5.6.7.8'}))
+        self._patch_dialog(mocker, exec_return=1,
+                           get_data=('edit-me', 'sftp', {'host': '5.6.7.8'}))
 
         interface.showEditDialog('edit-me')
         deps['config_manager'].update_remote.assert_called_once_with(
@@ -534,10 +535,8 @@ class TestRemoteInterfaceRegistryPaths:
         deps['config_manager'].get_remote.return_value = remote
         deps['config_manager'].update_remote.return_value = False
 
-        from app.views.remote_interface import AddRemoteDialog
-        mocker.patch.object(AddRemoteDialog, 'exec', return_value=1)
-        mocker.patch.object(AddRemoteDialog, 'getData',
-                           return_value=('edit-me', 'sftp', {'host': '5.6.7.8'}))
+        self._patch_dialog(mocker, exec_return=1,
+                           get_data=('edit-me', 'sftp', {'host': '5.6.7.8'}))
 
         interface.showEditDialog('edit-me')
         deps['config_manager'].update_remote.assert_called_once()
@@ -557,6 +556,7 @@ class TestRemoteInterfaceRegistryPaths:
         deps['config_manager'].list_remotes.return_value = []
 
         from qfluentwidgets import MessageBox
+        mocker.patch.object(MessageBox, '__init__', return_value=None)
         mocker.patch.object(MessageBox, 'exec', return_value=1)
 
         interface.deleteRemote('delete-me')
@@ -568,6 +568,7 @@ class TestRemoteInterfaceRegistryPaths:
         deps['config_manager'].delete_remote.return_value = False
 
         from qfluentwidgets import MessageBox
+        mocker.patch.object(MessageBox, '__init__', return_value=None)
         mocker.patch.object(MessageBox, 'exec', return_value=1)
 
         interface.deleteRemote('delete-me')
@@ -578,6 +579,7 @@ class TestRemoteInterfaceRegistryPaths:
         interface, deps = self._make_interface(mocker)
 
         from qfluentwidgets import MessageBox
+        mocker.patch.object(MessageBox, '__init__', return_value=None)
         mocker.patch.object(MessageBox, 'exec', return_value=0)
 
         interface.deleteRemote('delete-me')
