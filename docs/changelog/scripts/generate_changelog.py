@@ -49,20 +49,17 @@ def get_empty_tree_hash() -> str:
     return run_git(["hash-object", "-t", "tree", "--stdin"], stdin_data=b"")
 
 
-def get_previous_tag() -> str | None:
+def get_previous_tag(current_version: str) -> str | None:
     """
-    获取上一个 git tag。
+    获取上一个 git tag（排除当前版本的 tag）。
     如果没有任何 tag，返回 None（表示从第一个 commit 开始）。
     """
-    # 方法1: 尝试获取 HEAD 之前最近的 tag
-    result = run_git(["describe", "--tags", "--abbrev=0", "HEAD^"], allow_fail=True)
-    if result:
-        return result
-
-    # 方法2: 按创建时间排序获取所有 tag
+    # 按创建时间倒序获取所有 tag
     result = run_git(["tag", "--sort=-creatordate"], allow_fail=True)
     if result:
         tags = result.splitlines()
+        # 排除当前版本的 tag
+        tags = [t for t in tags if t != current_version]
         if tags:
             return tags[0]
 
@@ -131,8 +128,8 @@ def build_release_files(version: str, builder: str) -> str:
 def generate_changelog(version: str, builder: str) -> str:
     """生成完整的 changelog 内容。"""
 
-    # 获取上一个 tag
-    prev_tag = get_previous_tag()
+    # 获取上一个 tag（排除当前版本）
+    prev_tag = get_previous_tag(version)
 
     if prev_tag:
         print(f"[信息] 上一个 tag: {prev_tag}")
@@ -155,6 +152,24 @@ def generate_changelog(version: str, builder: str) -> str:
     release_files = build_release_files(version, builder)
 
     # 组装 changelog（按模板格式，去掉模板说明行）
+    quick_start = f"""### 安装包（推荐）
+
+下载 `RCloneGUI-{version}-setup.exe`，运行安装向导即可。安装包已内置 rclone。
+
+### 独立可执行文件
+
+下载 `RCloneGUI-{version}-nuitka.exe` 或 `RCloneGUI-{version}-pyinstaller.exe`，双击运行。
+首次启动会自动从 GitHub 下载 rclone。
+
+### 从源码运行
+
+```bash
+git clone https://github.com/GamblerIX/RCloneGUI.git
+cd RCloneGUI
+pip install -r requirements.txt
+python main.py
+```"""
+
     changelog = f"""# {today} {version} 
 
 ## 文件变更
@@ -181,7 +196,7 @@ def generate_changelog(version: str, builder: str) -> str:
 
 ## 快速开始
 
-{{keep}}
+{quick_start}
 """
 
     return changelog
