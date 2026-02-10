@@ -246,7 +246,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: installer
-          path: Output/RCloneGUI-*-setup.exe
+          path: installer/Output/RCloneGUI-*-setup.exe
 
   release:
     needs: [prepare, generate-changelog, build-nuitka, build-pyinstaller, build-installer]
