@@ -218,14 +218,33 @@ class TestS3ProviderConfig:
 
 
 class TestEmptyDirectoryReturnsEmptyDict:
-    """验证空目录返回空字典。"""
+    """验证动态发现和静态 fallback 都失败时返回空字典。"""
 
     def test_empty_providers_directory(self, monkeypatch) -> None:
-        """_Requirements: 3.5_"""
+        """_Requirements: 3.5_
+
+        当动态发现和静态 fallback 都无法加载任何模块时，应返回空字典。
+        直接 mock _discover_dynamic 和 _discover_static 两个内部函数。
+        """
+        from app.providers import _discover_dynamic, _discover_static
+
         _clear_cache()
 
-        # 模拟 pkgutil.iter_modules 返回空列表，模拟空目录
-        import app.providers as providers_pkg
+        # mock 两个发现函数都返回空
+        monkeypatch.setattr('app.providers._discover_dynamic', lambda: {})
+        monkeypatch.setattr('app.providers._discover_static', lambda: {})
+
+        _clear_cache()
+        result = get_all_providers()
+        assert result == {}, f"动态和静态发现都失败时应返回空字典，但返回了 {result}"
+
+        _clear_cache()
+
+    def test_dynamic_empty_triggers_static_fallback(self, monkeypatch) -> None:
+        """动态发现为空时，静态 fallback 应能正常加载所有已知提供商。"""
+        _clear_cache()
+
+        # 仅 mock pkgutil.iter_modules 返回空，不 mock 静态导入
         monkeypatch.setattr(
             'pkgutil.iter_modules',
             lambda path: iter([]),
@@ -233,9 +252,11 @@ class TestEmptyDirectoryReturnsEmptyDict:
 
         _clear_cache()
         result = get_all_providers()
-        assert result == {}, f"空目录应返回空字典，但返回了 {result}"
+        assert len(result) > 0, "静态 fallback 应能加载提供商"
+        assert 'sftp' in result
+        assert 'ftp' in result
+        assert 's3' in result
 
-        # 清理：恢复缓存以免影响后续测试
         _clear_cache()
 
 

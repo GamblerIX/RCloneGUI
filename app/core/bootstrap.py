@@ -124,18 +124,25 @@ def ensure_rclone(rclone_path: str | Path):
     _download_and_extract_rclone(url, rclone_path.parent)
 
 
+def get_rclone_path() -> Path:
+    """返回 rclone 可执行文件的绝对路径。"""
+    from app.common.config import cfg, APP_PATH
+    rclone_rel = cfg.rclonePath.value
+    return Path(rclone_rel) if Path(rclone_rel).is_absolute() else APP_PATH / rclone_rel
+
+
+def is_rclone_available() -> bool:
+    """检查 rclone 是否已存在。"""
+    return get_rclone_path().is_file()
+
+
 def bootstrap():
+    """启动前检查。仅做系统版本校验，不再自动下载 rclone。
+
+    rclone 的下载由 GUI 层在主窗口显示后处理，以便展示下载进度遮罩。
+    """
     try:
         check_windows_version()
-    except BootstrapError as e:
-        return False, str(e)
-
-    try:
-        from app.common.config import cfg, APP_PATH
-        from pathlib import Path
-        rclone_rel = cfg.rclonePath.value
-        rclone_path = Path(rclone_rel) if Path(rclone_rel).is_absolute() else APP_PATH / rclone_rel
-        ensure_rclone(rclone_path)
     except BootstrapError as e:
         return False, str(e)
 

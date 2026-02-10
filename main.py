@@ -13,7 +13,7 @@ from app.views.main_window import MainWindow
 from app.common.config import cfg, get_system_theme
 from app.common.signal_bus import signalBus
 from app.common.logger import app_logger
-from app.core.bootstrap import bootstrap
+from app.core.bootstrap import bootstrap, is_rclone_available
 from app.core.rclone import RClone
 from app.core.mount_manager import MountManager
 from app.core.sync_manager import SyncManager
@@ -234,7 +234,7 @@ def main():
         else:
             app_logger.warning('系统托盘不可用')
 
-        if cfg.autoMount.value and hasattr(app, '_tray'):
+        if cfg.autoMount.value and hasattr(app, '_tray') and is_rclone_available():
             try:
                 app._tray.mountManager.auto_mount_all()
             except Exception as e:
@@ -247,6 +247,49 @@ def main():
                 msg_box.exec()
 
         window.show()
+
+        # rclone 缺失时显示下载遮罩，阻止用户操作
+        if not is_rclone_available():
+            app_logger.info('rclone 未找到，显示下载遮罩')
+            from app.views.download_overlay import DownloadOverlay
+            from PySide6.QtWidgets import QMessageBox
+
+            overlay = DownloadOverlay(window)
+            overlay.setGeometry(window.centralWidget().rect() if window.centralWidget() else window.rect())
+            overlay.raise_()
+            overlay.show()
+
+            def _on_download_finished(success, error_msg):
+                if success:
+                    app_logger.info('rclone 下载完成，应用就绪')
+                    # 刷新远程存储列表
+                    if hasattr(window, 'remoteInterface'):
+                        window.remoteInterface.loadRemotes()
+                    # 执行自动挂载（如果启用）
+                    if cfg.autoMount.value and hasattr(app, '_tray'):
+                        try:
+                            app._tray.mountManager.auto_mount_all()
+                        except Exception as e:
+                            app_logger.error(f'自动挂载失败: {e}')
+                else:
+                    app_logger.error(f'rclone 下载失败: {error_msg}')
+                    msg_box = QMessageBox()
+                    msg_box.setWindowTitle('RClone GUI - 下载失败')
+                    msg_box.setText(f'自动下载 rclone 失败:\n{error_msg}\n\n'
+                                   f'请手动下载 rclone 并放置到 environments 目录。')
+                    msg_box.setIcon(QMessageBox.Critical)
+                    msg_box.exec()
+
+            overlay.downloadFinished.connect(_on_download_finished)
+            overlay.startDownload()
+
+            # 让遮罩跟随窗口大小变化
+            _orig_resize = window.resizeEvent
+            def _patched_resize(event):
+                if overlay and not overlay.isHidden():
+                    overlay.setGeometry(window.centralWidget().rect() if window.centralWidget() else window.rect())
+                _orig_resize(event)
+            window.resizeEvent = _patched_resize
 
         def signal_handler(sig, frame):
             app_logger.info('接收到信号，正在退出...')
