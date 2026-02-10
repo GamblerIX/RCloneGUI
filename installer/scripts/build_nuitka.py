@@ -68,15 +68,13 @@ def build(debug: bool = False, standalone: bool = False):
     if debug:
         pass  # 默认有控制台
     else:
-        cmd.append("--disable-console")
+        cmd.append("--windows-console-mode=disable")
 
     # ── 包含 qfluentwidgets 及其资源 ──
     qfw_path = find_package_path("qfluentwidgets")
     if qfw_path:
         cmd.append(f"--include-package=qfluentwidgets")
-        rc_dir = qfw_path / "_rc"
-        if rc_dir.exists():
-            cmd.append(f"--include-data-dir={rc_dir}=qfluentwidgets/_rc")
+        # _rc 资源已通过 --include-package 包含，无需单独 --include-data-dir
         print(f"  qfluentwidgets: {qfw_path}")
 
     qfw_path2 = find_package_path("qframelesswindow")
@@ -97,12 +95,14 @@ def build(debug: bool = False, standalone: bool = False):
 
     env_dir = ROOT / "environments"
     if env_dir.exists():
-        cmd.append(f"--include-data-dir={env_dir}=environments")
-        # Nuitka 的 --include-data-dir 会跳过 .exe/.dll 等二进制文件，
-        # 需要用 --include-data-files 显式包含 rclone.exe
+        # --include-data-dir 会跳过 .exe/.dll，所以只用 --include-data-files
         rclone_exe = env_dir / "rclone.exe"
         if rclone_exe.exists():
             cmd.append(f"--include-data-files={rclone_exe}=environments/rclone.exe")
+        # 包含目录中其他非二进制数据文件（如果有的话）
+        non_binary = [f for f in env_dir.iterdir() if f.is_file() and f.suffix not in ('.exe', '.dll')]
+        if non_binary:
+            cmd.append(f"--include-data-dir={env_dir}=environments")
 
     # ── 排除不需要的模块 ──
     noinclude = [
@@ -119,6 +119,8 @@ def build(debug: bool = False, standalone: bool = False):
         "PySide6.QtMultimediaWidgets",
         "PySide6.QtCharts",
         "PySide6.QtDataVisualization",
+        "PyQt6",
+        "numpy",
         "pytest",
         "hypothesis",
         "unittest",
