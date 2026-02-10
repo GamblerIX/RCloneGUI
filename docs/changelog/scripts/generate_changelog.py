@@ -17,7 +17,13 @@ import argparse
 import subprocess
 import sys
 import os
+import io
 from datetime import datetime, timezone, timedelta
+
+# 修复 Windows CI 环境中 cp1252 编码无法输出中文的问题
+if sys.stdout.encoding and sys.stdout.encoding.lower().replace("-", "") != "utf8":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 
 def run_git(args: list[str], *, allow_fail: bool = False, stdin_data: bytes | None = None) -> str:

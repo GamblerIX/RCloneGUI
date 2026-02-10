@@ -2,6 +2,19 @@ name: CD
 
 on:
   workflow_dispatch:
+    inputs:
+      debug:
+        description: "启用调试模式"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+env:
+  ACTIONS_STEP_DEBUG: ${{ github.event.inputs.debug || 'true' }}
+  PYTHONUTF8: "1"
 
 permissions:
   contents: write
@@ -36,6 +49,15 @@ jobs:
             exit 1
           }
 
+      - name: Debug info
+        if: env.ACTIONS_STEP_DEBUG == 'true'
+        shell: pwsh
+        run: |
+          echo "Python: $(python --version)"
+          echo "Git: $(git --version)"
+          echo "OS: $env:OS"
+          echo "Runner: $env:RUNNER_OS"
+
   generate-changelog:
     needs: prepare
     runs-on: windows-latest
@@ -50,7 +72,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Debug - show git info
+        if: env.ACTIONS_STEP_DEBUG == 'true'
+        shell: pwsh
+        run: |
+          echo "=== Git Tags ==="
+          git tag -l
+          echo "=== Git Log (last 10) ==="
+          git log --oneline -10
+          echo "=== Python encoding ==="
+          python -c "import sys; print(f'stdout: {sys.stdout.encoding}, fs: {sys.getfilesystemencoding()}')"
+
       - name: Generate changelog
+        env:
+          PYTHONUTF8: "1"
         run: python docs/changelog/scripts/generate_changelog.py --version ${{ needs.prepare.outputs.version }} --builder ${{ needs.prepare.outputs.builder }}
 
       - name: Commit changelog
@@ -171,7 +206,6 @@ jobs:
       - name: Select exe for installer
         shell: pwsh
         run: |
-          # 优先使用 nuitka 构建的 exe 作为安装包的主程序
           $nuitkaExe = Get-ChildItem installer/dist/*nuitka* -ErrorAction SilentlyContinue | Select-Object -First 1
           $pyinstallerExe = Get-ChildItem installer/dist/*pyinstaller* -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($nuitkaExe) {

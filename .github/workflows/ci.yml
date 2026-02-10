@@ -5,6 +5,19 @@ on:
     branches: ["*"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "启用调试模式"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+env:
+  ACTIONS_STEP_DEBUG: ${{ github.event.inputs.debug || 'true' }}
 
 jobs:
   test:
@@ -30,4 +43,4 @@ jobs:
       - name: Run tests
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest
+        run: pytest --tb=long -s -v
