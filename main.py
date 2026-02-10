@@ -255,7 +255,8 @@ def main():
             from PySide6.QtWidgets import QMessageBox
 
             overlay = DownloadOverlay(window)
-            overlay.setGeometry(window.centralWidget().rect() if window.centralWidget() else window.rect())
+            _cw = window.centralWidget() if hasattr(window, 'centralWidget') and callable(getattr(window, 'centralWidget', None)) else None
+            overlay.setGeometry(_cw.rect() if _cw else window.rect())
             overlay.raise_()
             overlay.show()
 
@@ -287,7 +288,8 @@ def main():
             _orig_resize = window.resizeEvent
             def _patched_resize(event):
                 if overlay and not overlay.isHidden():
-                    overlay.setGeometry(window.centralWidget().rect() if window.centralWidget() else window.rect())
+                    _cw = window.centralWidget() if hasattr(window, 'centralWidget') and callable(getattr(window, 'centralWidget', None)) else None
+                    overlay.setGeometry(_cw.rect() if _cw else window.rect())
                 _orig_resize(event)
             window.resizeEvent = _patched_resize
 

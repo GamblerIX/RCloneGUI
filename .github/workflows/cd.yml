@@ -112,39 +112,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Get version without v prefix
-        id: version
-        shell: pwsh
-        run: |
-          $ver = "${{ needs.prepare.outputs.version }}".TrimStart("v")
-          echo "number=$ver" >> $env:GITHUB_OUTPUT
+      - name: Install Nuitka
+        run: pip install nuitka ordered-set zstandard
 
-      - name: Build with Nuitka
-        uses: Nuitka/Nuitka-Action@main
-        with:
-          script-name: main.py
-          mode: onefile
-          enable-plugins: pyside6
-          disable-console: true
-          output-dir: build
-          output-file: RCloneGUI.exe
-          product-name: "RClone GUI"
-          file-description: "RClone GUI Application"
-          company-name: "RCloneGUI"
-          product-version: ${{ steps.version.outputs.number }}
-          file-version: ${{ steps.version.outputs.number }}
-          assume-yes-for-downloads: true
-          deployment: true
-
-      - name: Rename executable
-        shell: pwsh
-        run: Rename-Item build/RCloneGUI.exe "RCloneGUI-${{ needs.prepare.outputs.version }}-nuitka.exe"
+      - name: Build with Nuitka (local script)
+        run: python installer/scripts/build_nuitka.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: nuitka-build
-          path: build/RCloneGUI-${{ needs.prepare.outputs.version }}-nuitka.exe
+          path: installer/dist/RCloneGUI-*-nuitka.exe
 
   build-pyinstaller:
     needs: [prepare, generate-changelog]
@@ -165,18 +143,14 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build with PyInstaller
-        run: pyinstaller --onefile --noconsole --name RCloneGUI main.py
-
-      - name: Rename executable
-        shell: pwsh
-        run: Rename-Item dist/RCloneGUI.exe "RCloneGUI-${{ needs.prepare.outputs.version }}-pyinstaller.exe"
+      - name: Build with PyInstaller (local script)
+        run: python installer/scripts/build_pyinstaller.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pyinstaller-build
-          path: dist/RCloneGUI-${{ needs.prepare.outputs.version }}-pyinstaller.exe
+          path: installer/dist/RCloneGUI-*-pyinstaller.exe
 
   build-installer:
     needs: [prepare, build-nuitka, build-pyinstaller]

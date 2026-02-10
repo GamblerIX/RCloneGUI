@@ -73,20 +73,20 @@ class AppLogger:
     def logger(self) -> logging.Logger:
         return self._logger
 
-    def debug(self, msg: str):
-        self._logger.debug(msg)
+    def debug(self, msg: str, **kwargs):
+        self._logger.debug(msg, **kwargs)
 
-    def info(self, msg: str):
-        self._logger.info(msg)
+    def info(self, msg: str, **kwargs):
+        self._logger.info(msg, **kwargs)
 
-    def warning(self, msg: str):
-        self._logger.warning(msg)
+    def warning(self, msg: str, **kwargs):
+        self._logger.warning(msg, **kwargs)
 
-    def error(self, msg: str):
-        self._logger.error(msg)
+    def error(self, msg: str, **kwargs):
+        self._logger.error(msg, **kwargs)
 
-    def critical(self, msg: str):
-        self._logger.critical(msg)
+    def critical(self, msg: str, **kwargs):
+        self._logger.critical(msg, **kwargs)
 
     def get_log_dir(self) -> Path:
         return self._log_dir
