@@ -98,6 +98,11 @@ def build(debug: bool = False, standalone: bool = False):
     env_dir = ROOT / "environments"
     if env_dir.exists():
         cmd.append(f"--include-data-dir={env_dir}=environments")
+        # Nuitka 的 --include-data-dir 会跳过 .exe/.dll 等二进制文件，
+        # 需要用 --include-data-files 显式包含 rclone.exe
+        rclone_exe = env_dir / "rclone.exe"
+        if rclone_exe.exists():
+            cmd.append(f"--include-data-files={rclone_exe}=environments/rclone.exe")
 
     # ── 排除不需要的模块 ──
     noinclude = [
@@ -119,7 +124,7 @@ def build(debug: bool = False, standalone: bool = False):
         "unittest",
     ]
     for mod in noinclude:
-        cmd.append(f"--noinclude-default-mode=nofollow:{mod}")
+        cmd.append(f"--nofollow-import-to={mod}")
 
     # ── deployment 模式（关闭 Nuitka 的安全检查提示） ──
     cmd.append("--deployment")

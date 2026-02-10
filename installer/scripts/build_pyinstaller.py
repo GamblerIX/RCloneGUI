@@ -9,6 +9,7 @@ PyInstaller 打包脚本 - RClone GUI
 """
 
 import argparse
+import os
 import subprocess
 import sys
 import shutil
@@ -209,7 +210,6 @@ def build(debug: bool = False, onedir: bool = False):
 
 
 if __name__ == "__main__":
-    import os
     parser = argparse.ArgumentParser(description="PyInstaller 打包 RClone GUI")
     parser.add_argument("--debug", action="store_true", help="启用调试模式（显示控制台）")
     parser.add_argument("--onedir", action="store_true", help="使用 onedir 模式（目录分发）")

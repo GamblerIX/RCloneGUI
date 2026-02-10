@@ -12,7 +12,7 @@ from qfluentwidgets import (
     TitleLabel, setTheme, Theme, isDarkTheme, qconfig
 )
 
-from ..common.config import cfg, get_system_theme, CacheDirMode, get_cache_dir, DEFAULT_CACHE_DIR
+from ..common.config import cfg, get_system_theme, CacheDirMode, get_cache_dir, DEFAULT_CACHE_DIR, APP_PATH
 from ..common.signal_bus import signalBus
 from ..common.auto_start import set_auto_start, is_auto_start_enabled
 from ..common.logger import get_logger
@@ -155,6 +155,15 @@ class SettingsInterface(ScrollArea):
 
         self.aboutGroup = SettingCardGroup('关于', self)
 
+        self.appDirCard = PushSettingCard(
+            '打开',
+            FIF.FOLDER,
+            '当前目录',
+            str(APP_PATH),
+            self.aboutGroup
+        )
+        self.appDirCard.clicked.connect(self.openAppDir)
+
         self.aboutCard = PrimaryPushSettingCard(
             '查看项目',
             FIF.GITHUB,
@@ -164,6 +173,7 @@ class SettingsInterface(ScrollArea):
         )
         self.aboutCard.clicked.connect(self.openProjectUrl)
 
+        self.aboutGroup.addSettingCard(self.appDirCard)
         self.aboutGroup.addSettingCard(self.aboutCard)
 
         self.mainLayout.addWidget(self.rcloneGroup)
@@ -280,3 +290,9 @@ class SettingsInterface(ScrollArea):
             parent=self,
             position=InfoBarPosition.TOP
         )
+
+    def openAppDir(self):
+        import os
+        path = str(APP_PATH)
+        logger.info(f'用户打开当前目录: {path}')
+        os.startfile(path)
