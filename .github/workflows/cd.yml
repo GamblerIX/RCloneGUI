@@ -224,6 +224,18 @@ jobs:
           New-Item -ItemType Directory -Force -Path installer/environments
           Copy-Item environments/rclone.exe installer/environments/rclone.exe
 
+      - name: Download Inno Setup Chinese Simplified language file
+        shell: pwsh
+        run: |
+          $issPath = "${env:ProgramFiles(x86)}\Inno Setup 6\Languages"
+          if (-not (Test-Path "$issPath\ChineseSimplified.isl")) {
+            $url = "https://raw.githubusercontent.com/kira-96/Inno-Setup-Chinese-Simplified-Translation/main/ChineseSimplified.isl"
+            Invoke-WebRequest -Uri $url -OutFile "$issPath\ChineseSimplified.isl"
+            echo "已下载 ChineseSimplified.isl 到 $issPath"
+          } else {
+            echo "ChineseSimplified.isl 已存在"
+          }
+
       - name: Build installer with Inno Setup
         shell: pwsh
         run: |
