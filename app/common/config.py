@@ -38,14 +38,17 @@ class EnumSerializer(ConfigSerializer):
 
 
 def get_app_path():
+    # Nuitka 编译模式：优先使用 __compiled__.containing_dir
+    try:
+        # noinspection PyUnresolvedReferences
+        return Path(__compiled__.containing_dir)  # noqa: F821
+    except NameError:
+        pass
+
     if getattr(sys, 'frozen', False):
-        # Nuitka onefile: __compiled__.containing_dir 指向原始 exe 所在目录
-        # 而 sys.executable 在 Nuitka onefile 下指向临时解压目录
-        compiled = globals().get('__compiled__', None)
-        if compiled and hasattr(compiled, 'containing_dir'):
-            return Path(compiled.containing_dir)
         # PyInstaller: sys.executable 直接指向原始 exe
         return Path(sys.executable).parent
+
     return Path(__file__).parent.parent.parent
 
 
