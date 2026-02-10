@@ -13,7 +13,7 @@ on:
           - "false"
 
 env:
-  ACTIONS_STEP_DEBUG: ${{ github.event.inputs.debug || 'true' }}
+  ACTIONS_STEP_DEBUG: "true"
   PYTHONUTF8: "1"
 
 permissions:
@@ -125,15 +125,16 @@ jobs:
           script-name: main.py
           mode: onefile
           enable-plugins: pyside6
-          windows-console-mode: disable
+          disable-console: true
           output-dir: build
-          output-filename: RCloneGUI.exe
+          output-file: RCloneGUI.exe
           product-name: "RClone GUI"
           file-description: "RClone GUI Application"
           company-name: "RCloneGUI"
           product-version: ${{ steps.version.outputs.number }}
           file-version: ${{ steps.version.outputs.number }}
-          extra-options: --assume-yes-for-downloads --deployment
+          assume-yes-for-downloads: true
+          deployment: true
 
       - name: Rename executable
         shell: pwsh

@@ -17,7 +17,7 @@ on:
           - "false"
 
 env:
-  ACTIONS_STEP_DEBUG: ${{ github.event.inputs.debug || 'true' }}
+  ACTIONS_STEP_DEBUG: "true"
 
 jobs:
   test:
