@@ -43,6 +43,9 @@ def build(debug: bool = False, standalone: bool = False):
 
     DIST_DIR.mkdir(parents=True, exist_ok=True)
 
+    # 图标文件路径
+    icon_path = ROOT / "icon.ico"
+
     cmd = [
         sys.executable, "-m", "nuitka",
         str(MAIN_SCRIPT),
@@ -57,6 +60,10 @@ def build(debug: bool = False, standalone: bool = False):
         f"--file-version={version}",
         "--follow-imports",
     ]
+
+    # 添加图标
+    if icon_path.exists():
+        cmd.append(f"--windows-icon-from-ico={icon_path}")
 
     # 模式选择
     if standalone:

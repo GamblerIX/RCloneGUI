@@ -220,6 +220,11 @@ def main():
         app.setApplicationName('RClone GUI')
         app.setOrganizationName('RCloneGUI')
 
+        # 设置应用图标
+        icon_path = ROOT / "icon.ico" if 'ROOT' in globals() else os.path.join(os.path.dirname(__file__), 'icon.ico')
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+
         theme = cfg.themeMode.value
         apply_theme_with_auto_detection(theme)
 

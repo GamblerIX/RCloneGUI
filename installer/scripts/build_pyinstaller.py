@@ -49,6 +49,9 @@ def build(debug: bool = False, onedir: bool = False):
         shutil.rmtree(BUILD_DIR)
     DIST_DIR.mkdir(parents=True, exist_ok=True)
 
+    # 图标文件路径
+    icon_path = ROOT / "icon.ico"
+
     # ── 基础命令 ──
     cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -60,6 +63,10 @@ def build(debug: bool = False, onedir: bool = False):
         "--clean",
         "--noconfirm",
     ]
+
+    # 添加图标
+    if icon_path.exists():
+        cmd.extend(["--icon", str(icon_path)])
 
     # onefile vs onedir
     if onedir:
